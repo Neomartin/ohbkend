@@ -22,7 +22,7 @@ function login(req, res) {
             }
             //Jwt
             user.password = undefined; //pass
-            var token = jwt.sign( { user }, SEED, { expiresIn: 14400 })  //4 hours
+            var token = jwt.sign( { user }, SEED, { expiresIn: 1994400 })  //4 hours
             return res.status(200).send({   ok: true, 
                                             message: 'Login correcto',
                                             token: token,
@@ -35,6 +35,8 @@ function login(req, res) {
 
 function addUser(req, res) {
     var user = new User(req.body);
+    user.username = user.username.toLowerCase();
+    user.email = user.email.toLowerCase();
     // console.log('Usuario:', user);
     if(user.password) {
         bcrypt.hash(user.password, 10, (err, hash) => {

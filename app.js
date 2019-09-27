@@ -5,7 +5,9 @@ var bodyParser = require('body-parser');
 var app = express();
 
 //cargar rutas
-var user_routes = require('./Routes/user');
+var user_routes = require('./routes/user');
+var file_routes = require('./routes/file');
+var order_routes = require('./routes/orders');
 // var product_routes = require('./Routes/product');
 // var queja_routes = require('./routes/quejas');
 
@@ -29,7 +31,11 @@ app.use((req, res, next) => {
 
 
 //rutas
-app.use('/api', [user_routes]);
+app.use('/api', [
+				   user_routes, 
+				   file_routes,
+				   order_routes
+				]);
 
 //exportar
 module.exports = app;
