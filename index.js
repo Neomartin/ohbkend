@@ -7,7 +7,7 @@ var password = require('./config/config').PASS;
 
 //Conexion a la Base de Datos
 mongoose.Promise = global.Promise;
-mongoose.connect('mongodb+srv://neotech:'+password+'@ohana-z8v9j.mongodb.net/test?retryWrites=true&w=majority', { useNewUrlParser: true })
+mongoose.connect('mongodb+srv://neotech:'+password+'@ohana-z8v9j.mongodb.net/test?retryWrites=true&w=majority', { useNewUrlParser: true,  useFindAndModify: false  })
     .then(()=> {
         console.log('Connection to \x1b[36mDATABASE Successful!! \x1b[37m');
         //Crear servidor

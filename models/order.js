@@ -3,10 +3,11 @@ var Schema = mongoose.Schema;
 // var moment = require('moment');
 
 var validStatus = [
-    'in_progress',
     'processed',
+    'in_progress',
     'completed',
-    'canceled'
+    'canceled',
+    'delivered'
 ];
 
 var OrderSchema = new Schema({
@@ -17,12 +18,15 @@ var OrderSchema = new Schema({
             file_id: { type: Schema.Types.ObjectId, ref: 'File', required: true},
             quantity: {type: Number, default: 1, required: true },
             price: { type: Number, default: 1, required: true},
+            name: { type: String }
         },
     ],
     created_at: { type: Number },
-    modified_at: { tipe: Number },
+    modified_at: { type: Number },
     end_at: { type: Number, required: true },
-    total: { type: Number, default: 1, required: true }
+    delivered: { type: Number },
+    price: { type: Number, default: 1, required: true },
+    partial_payment: { type: Number, default: 0 },
 
 });
 

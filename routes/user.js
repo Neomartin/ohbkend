@@ -8,6 +8,6 @@ var api = express.Router();
 //Definimos Rutas
 api.post('/login', UserController.login);
 api.post('/user', UserController.addUser);
-api.get('/user/:id?', mdAuthentication.ensureAuth, UserController.getUsers);
+api.get('/user/:id?', UserController.getUsers); // mdAuthentication.ensureAuth
 
 module.exports = api;

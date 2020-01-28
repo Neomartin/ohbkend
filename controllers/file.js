@@ -21,7 +21,7 @@ function addFrom (req, res) {
     });
 }
 function getFrom (req, res) {
-    console.log('llamada realizada al getFrom');
+    // console.log('llamada realizada al getFrom');
     if(req.params.id) {
         from.findById(req.params.id).populate().exec((err, from) => {
             if (err) return res.status(500).send({ ok: false, message: 'Error al obtener instituciones, ', err});
@@ -87,7 +87,7 @@ function addCareer (req, res) {
     var career = new Career(req.body);
     console.log('JS: ', Date.now());
     console.log('Moment: ', moment().unix());
-    return res.status(200).send({ok: true, message: 'Carrera agregada correctamente.'});
+    // return res.status(200).send({ok: true, message: 'Carrera agregada correctamente.'});
     
     career.save((err, saved)=> {
         if (err) return res.status(500).send({ok: false, message: 'Error interno no se pudo agregar carrera.'});
@@ -102,7 +102,7 @@ function addCareer (req, res) {
     // });
 }
 function getCareer (req, res) {
-
+    console.log(req.params);
     // console.log('llamada realizada al getFrom');
     // if(req.params.id) {
     //     from.findById(req.params.id).populate().exec((err, from) => {
@@ -118,6 +118,17 @@ function getCareer (req, res) {
         });
     // }
 }
+
+function getCareerFrom (req, res) {
+    var id = req.params.from;
+    // console.log(id);
+    Career.find({'from_id': id }).populate('from_id').exec((err, career)=> {
+        if (err) return res.status(500).send({ ok: false, message: 'Error al obtener carreras de Institución.', err});
+        if (!career) return res.status(404).send({ ok: false, message: 'No se encontraron carreras de Institución.'});
+        return res.status(200).send({ ok: true, message: 'Carreras obtenidas correctamente', career});
+    });
+}
+
 function delCareer (req, res) {
     // var id = req.params.id;
     // from.findByIdAndRemove(id, (err, deleted) => {
@@ -128,13 +139,15 @@ function delCareer (req, res) {
 }
 
 function addFile(req, res) {
-    req.body.origin = [{
-        from_id: '5d5f2140dd1b464350a49866',
-        year: 'Primer',
-        career_id: '5d5f5a66aca50a1d545d32bb'
-    }];
+    // {req.body.origin = [{
+    //     from_id: '5d5f2140dd1b464350a49866',
+    //     year: 'Primer',
+    //     career_id: '5d5f5a66aca50a1d545d32bb'
+    // }];}
     var file = new File(req.body);
-    // console.log(file);
+    if(!req.body.career_id) req.body.career_id = null;
+    file.crated_at = moment().unix()
+    console.log(file);
     file.save((err, saved) => {
         if (err) return res.status(500).send({ok: false, message: 'Error al agregar archivo', err});
         if (!saved) return res.status(404).send({ok: false, message: 'No se pudo guardar el archivo, datos incorrectos'});
@@ -148,14 +161,27 @@ function getFile(req, res) {
     } else {
         File.find()
                     .populate('user_id', { password: 0, role: 0})
-                    .populate({path: 'origin.from_id'})
-                    .populate({path: 'origin.career_id'})
+                    .populate({path: 'from_id'})
+                    .populate({path: 'career_id'})
                     .exec((err, files) => {
             if (err) return res.status(500).send({ok: false, message: 'Error al obtener FILES', err});
             if (!files) return res.status(404).send({ok: false, message: 'No se pudieron obtener archivos'});
             return res.status(200).send({ok: true, message: 'Archivos obtenidos correctamente', files});
         })
     }
+}
+
+function deleteFile(req, res) {
+    var id = req.params.id;
+    if(id) {
+        File.findByIdAndRemove( id, (err, deleted) => {
+            if(err) return res.status(500).send({ ok: false, message: 'Error en al intentar eliminar el archivo.'});
+            if(!deleted) return res.status(404).send({ ok: false, message: 'No se pudo eliminar el archivo específicado.'});
+            return res.status(200).send({ ok: true, message: 'Archivo eliminado correctamente', deleted});
+        });
+    } else {
+   return res.status(500).send({ ok: false, message: 'El ID es obligatorio.'});
+    }     
 }
 module.exports = {
     addFrom,
@@ -167,6 +193,8 @@ module.exports = {
     addCareer,
     getCareer,
     delCareer,
+    getCareerFrom,
     addFile,
-    getFile
+    getFile,
+    deleteFile
 }

@@ -4,13 +4,14 @@ var mongoose = require('mongoose');
 var User = require('../models/user');
 var SEED = require('../config/config').SEED;
 
-var bcrypt = require('bcrypt');
+var bcrypt = require('bcrypt-nodejs');
 var jwt = require('jsonwebtoken');
 
 // ===============================================
 // LOGIN Block                       				   
 // ===============================================
 function login(req, res) {
+    
     var body = req.body;
     // console.log(body);
     if(body.username && body.password) {
@@ -34,9 +35,11 @@ function login(req, res) {
 }
 
 function addUser(req, res) {
+    console.log('Body: ', req.body);
     var user = new User(req.body);
-    user.username = user.username.toLowerCase();
-    user.email = user.email.toLowerCase();
+    user.username ? user.username.toLowerCase() : user.username = user.name + Date.now();
+    if(user.email) { user.email.toLowerCase(); }
+    console.log('User: ', user);
     // console.log('Usuario:', user);
     if(user.password) {
         bcrypt.hash(user.password, 10, (err, hash) => {
@@ -45,8 +48,9 @@ function addUser(req, res) {
         });
     }
     user.save((err, stored) => {
-        if (err) return res.status(400).send({ok: false, message: 'Error al guardar usuario, error: ', error: err});
-        if (stored) return res.status(200).send({ok: true, message: 'Usuario guardado correctamente.', stored});
+        if (err) return res.status(500).send({ok: false, message: 'Error al guardar usuario, error: ', error: err});
+        if (!stored) return res.status(404).send({ok: false, message: 'El usuario no fue cargado revise los datos ingresados'});
+        return res.status(200).send({ok: true, message: 'Usuario guardado correctamente.', stored});
     });
     // res.status(200).send({ ok: true, message: 'Usuario recibido', user: user});
 }
