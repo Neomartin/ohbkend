@@ -62,7 +62,7 @@ function getUsers(req, res) {
     console.log('Ingresa al Get');
     User.find({}, '-password').exec((err, users) => {
         if (err) return res.status(400).send({ok: false, message: 'Error al obtener usuarios, error: ', error: err});
-        if (users) return res.status(200).send({ok: true, usuarios: users});
+        if (users) return res.status(200).send({ok: true, users: users});
     });
     
 }
