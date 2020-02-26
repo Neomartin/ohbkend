@@ -108,6 +108,7 @@ function delOrder(req, res) {
         return res.status(400).send({ ok: false, message: 'Debe proporcionar un ID.', err})
     }
 }
+
 function updOrder(req, res) {
     var id = req.params.id;
     console.log('ID: ', id);

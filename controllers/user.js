@@ -2,32 +2,53 @@
 
 var mongoose = require('mongoose');
 var User = require('../models/user');
+var Order = require('../models/order');
 var SEED = require('../config/config').SEED;
 
-var bcrypt = require('bcrypt-nodejs');
+var bcrypt = require('bcrypt');
 var jwt = require('jsonwebtoken');
-
+var deletedUser = '5e422a70f2ac613af0b10566';
+var salt = 5;
 // ===============================================
 // LOGIN Block                       				   
 // ===============================================
 function login(req, res) {
     
-    var body = req.body;
-    // console.log(body);
+    console.log('Bady', body);
+    var body = new User();
+    body.username = req.body.user;
+    body.password = req.body.password;
+    console.log('After bady', body);
+    
     if(body.username && body.password) {
-        User.findOne({ username: body.username }, (err, user) => {
+        User.findOne({
+            $or: [
+                { username: body.username },
+                { email: body.username }
+            ]
+        }, (err, user) => {
             if (err) return res.status(500).send({ ok: false, message: 'Error al obtener usuario.' });
             if(!user) { return res.status(404).send({ ok: false, message: 'Error usuario no encontrado.' }); }
-            if(!bcrypt.compareSync(body.password, user.password)) {
-                return res.status(400).send({ ok: false, message: 'Error en los datos ingresados.' });
-            }
-            //Jwt
-            user.password = undefined; //pass
-            var token = jwt.sign( { user }, SEED, { expiresIn: 1994400 })  //4 hours
-            return res.status(200).send({   ok: true, 
-                                            message: 'Login correcto',
-                                            token: token,
-                                            user    });
+            
+            bcrypt.compare(body.password, user.password, (err, result)=> {
+                if (result) {
+                    //Jwt
+                    user.password = undefined; //pass
+                    console.log('Result:', result);
+                    var token = jwt.sign( { user }, SEED, { expiresIn: 1994400 })  //4 hours
+                    console.log('Token:', token);
+                    req.user = user;
+                    console.log('ReqUser:', req.user);
+                    req.user.token = token;
+                    console.log('ReqUser + Token:', req.user);
+                    return res.status(200).send({   ok: true, 
+                                                    message: 'Login correcto',
+                                                    user: req.user    });
+                } else {
+                    return res.status(404).send({ ok: false, message: 'Datos ingresados incorrectos'});
+                }
+            });
+            
         })
     } else {
         return res.status(400).send({ ok: false, message: 'Todos los campos son obligatorios'});
@@ -38,20 +59,34 @@ function addUser(req, res) {
     console.log('Body: ', req.body);
     var user = new User(req.body);
     user.username ? user.username.toLowerCase() : user.username = user.name + Date.now();
-    if(user.email) { user.email.toLowerCase(); }
+    user.email ? user.email = user.email.toLowerCase() : user.email = undefined; 
     console.log('User: ', user);
     // console.log('Usuario:', user);
     if(user.password) {
+        console.log('BeforePass: ', user);
         bcrypt.hash(user.password, 10, (err, hash) => {
-            if (err) return res.status(500).send({ ok: false, message: 'Error al guardar usuario.' });
+            console.log('Hash: ', hash);
+            // console.log('Error:', err );
+            if (err) return res.status(500).send({ ok: false, errorsito: err, message: 'Error al guardar usuario.' });
+            // if (err) return res.status(500).send({ ok: false, errorsito: err, message: 'Error al guardar usuario.' });
             user.password = hash;
+            user.save((err, stored) => {
+                console.log('Stored: ', stored);
+                if (err) return res.status(500).send({ok: false, message: 'Error al guardar usuario, error: ', error: err});
+                if (!stored) return res.status(404).send({ok: false, message: 'El usuario no fue cargado revise los datos ingresados'});
+                return res.status(200).send({ok: true, message: 'Usuario guardado correctamente.', stored});
+            });
+        });
+    } else {
+        console.log('User2: ', user);
+        user.save((err, stored) => {
+            console.log('Stored Normal: ', user);
+            if (err) return res.status(500).send({ok: false, message: 'Error al guardar usuario, error: ', error: err});
+            if (!stored) return res.status(404).send({ok: false, message: 'El usuario no fue cargado revise los datos ingresados'});
+            return res.status(200).send({ok: true, message: 'Usuario guardado correctamente.', stored});
         });
     }
-    user.save((err, stored) => {
-        if (err) return res.status(500).send({ok: false, message: 'Error al guardar usuario, error: ', error: err});
-        if (!stored) return res.status(404).send({ok: false, message: 'El usuario no fue cargado revise los datos ingresados'});
-        return res.status(200).send({ok: true, message: 'Usuario guardado correctamente.', stored});
-    });
+    
     // res.status(200).send({ ok: true, message: 'Usuario recibido', user: user});
 }
 
@@ -60,13 +95,68 @@ function addUser(req, res) {
 // ===============================================
 function getUsers(req, res) {
     console.log('Ingresa al Get');
-    User.find({}, '-password').exec((err, users) => {
-        if (err) return res.status(400).send({ok: false, message: 'Error al obtener usuarios, error: ', error: err});
-        if (users) return res.status(200).send({ok: true, users: users});
+    User.find({ _id: { $ne: deletedUser } }, '-password')
+        .exec((err, users) => {
+            if (err) return res.status(400).send({ok: false, message: 'Error al obtener usuarios, error: ', error: err});
+            if (users) return res.status(200).send({ok: true, users: users});
     });
     
 }
 
+function updUser(req, res) {
+    var id = req.params.id;
+    var user = new User();
+    user = req.body;
+    console.log('Body update user: ', req.body);
+    if(id) {
+        console.log('Entra al IF');
+        User.findOneAndUpdate({_id: id}, user, {new: true},  (err, updated) => {
+            if(err) return res.status(500).send({ ok: false, message: err});
+            if(!updated) return res.status(404).send({ ok: false, message: 'Error en datos para actualizar usuario.'});
+            return res.status(200).send({ ok: true, message: 'Usuario actualizado correctamente', updated: updated});
+        });
+    } else {
+
+    }
+}
+
+
+function delUser(req, res) {
+    var id = req.params.id;
+    if(id) {
+        delAndSetuser(id)
+            .then( (resp) => {
+                return res.status(200).send({ ok: true, message: 'Actualizado correctamente', await: resp });
+            })
+            .catch((err) => {
+                console.log(err);     
+            })
+        // User.findByIdAndRemove(id, (err, deleted)=> {
+        //     if (err) return res.status(500).send({ ok: false, message: 'Error al BORRAR Usuario', err})
+        //     if (!deleted) return res.status(404).send({ ok: false, message: 'No se pudo borrar Usuario con este ID.'})
+        //     return res.status(200).send({ ok: true, message: 'Usuario borrado CORRECTAMENTE', deleted})
+        // })
+    } else {
+        return res.status(400).send({ ok: false, message: 'Debe proporcionar un ID.', err})
+    }
+}
+async function delAndSetuser(id) {
+    var deleted = await User.findByIdAndRemove(id, (err, deleted)=> {
+        if (err) return { ok: false, message: 'Error al BORRAR Usuario', err};
+        if (!deleted) return { ok:false, message: 'No se pudo borrar Usuario con este ID.'};
+        return { ok: true, message: 'Usuario borrado CORRECTAMENTE', deleted};
+    });
+
+    var updated = await Order.updateMany({ 'client_id': id}, { 'client_id': delUser }, {new: true}, (err, updated) => {
+        if (err) return { ok: false, message: 'Error al Actualizar Ordenes Usuario Borrado', err};
+        if (!deleted) return { ok: false, message: 'No se pudo actualizar Usuario Borrado.'};
+        return { ok: true, message: 'Usuarios Actualizados correctamente', updated};
+    })
+    return {
+        deleted,
+        updated
+    }
+}
 // function register(req, res){
 //     var user = new User();
 //     var params = req.body;
@@ -127,5 +217,7 @@ function getUsers(req, res) {
 module.exports = {
     addUser,
     getUsers,
-    login
+    updUser,
+    delUser,
+    login, 
 }

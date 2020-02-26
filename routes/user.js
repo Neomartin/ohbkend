@@ -9,5 +9,7 @@ var api = express.Router();
 api.post('/login', UserController.login);
 api.post('/user', UserController.addUser);
 api.get('/user/:id?', UserController.getUsers); // mdAuthentication.ensureAuth
+api.put('/user/:id', UserController.updUser);
+api.delete('/user/:id', UserController.delUser)
 
 module.exports = api;
