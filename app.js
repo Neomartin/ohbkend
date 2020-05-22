@@ -8,6 +8,9 @@ var app = express();
 var user_routes = require('./routes/user');
 var file_routes = require('./routes/file');
 var order_routes = require('./routes/orders');
+var branch_routes = require('./routes/branch');
+// Remover*********
+var private_routes = require('./routes/private');
 // var product_routes = require('./Routes/product');
 // var queja_routes = require('./routes/quejas');
 
@@ -33,7 +36,10 @@ app.use((req, res, next) => {
 app.use('/api', [
 				   user_routes, 
 				   file_routes,
-				   order_routes
+				   order_routes,
+				   branch_routes,
+				   // Remover ****
+				   private_routes
 				]);
 
 //exportar

@@ -7,18 +7,19 @@ var SEED = require('../config/config').SEED;
 
 var bcrypt = require('bcrypt');
 var jwt = require('jsonwebtoken');
-var deletedUser = '5e422a70f2ac613af0b10566';
-var salt = 5;
+// var deletedUser = 'holis';
+var deletedUser = '5ec47a7231f3ce0abc4c2d7a';
+var salt = 10;
 // ===============================================
 // LOGIN Block                       				   
 // ===============================================
 function login(req, res) {
     
-    console.log('Bady', body);
+    // console.log('Bady', body);
     var body = new User();
-    body.username = req.body.user;
+    body.username = req.body.user.toLowerCase();
     body.password = req.body.password;
-    console.log('After bady', body);
+    // console.log('After bady', body);
     
     if(body.username && body.password) {
         User.findOne({
@@ -34,15 +35,17 @@ function login(req, res) {
                 if (result) {
                     //Jwt
                     user.password = undefined; //pass
-                    console.log('Result:', result);
+                    // console.log('Result:', result);
                     var token = jwt.sign( { user }, SEED, { expiresIn: 1994400 })  //4 hours
-                    console.log('Token:', token);
+                    user.token = token;
+                    console.log('Token:', user);
                     req.user = user;
-                    console.log('ReqUser:', req.user);
                     req.user.token = token;
-                    console.log('ReqUser + Token:', req.user);
+                    console.log('ReqUser:', req.user);
+                    // console.log('ReqUser + Token:', req.user);
                     return res.status(200).send({   ok: true, 
                                                     message: 'Login correcto',
+                                                    token: token,
                                                     user: req.user    });
                 } else {
                     return res.status(404).send({ ok: false, message: 'Datos ingresados incorrectos'});
@@ -58,13 +61,16 @@ function login(req, res) {
 function addUser(req, res) {
     console.log('Body: ', req.body);
     var user = new User(req.body);
-    user.username ? user.username.toLowerCase() : user.username = user.name + Date.now();
+    // Armando nombre usuario default por si no es enviado
+    var dateString = Date.now().toString();
+    console.log('Name Editadito Finalmente: ', user.name.split(' ')[0].toLowerCase() + dateString.slice(9));
+    user.username ? user.username.toLowerCase() : user.username = user.name.split(' ')[0].toLowerCase() + dateString.slice(9);
     user.email ? user.email = user.email.toLowerCase() : user.email = undefined; 
     console.log('User: ', user);
     // console.log('Usuario:', user);
     if(user.password) {
         console.log('BeforePass: ', user);
-        bcrypt.hash(user.password, 10, (err, hash) => {
+        bcrypt.hash(user.password, salt, (err, hash) => {
             console.log('Hash: ', hash);
             // console.log('Error:', err );
             if (err) return res.status(500).send({ ok: false, errorsito: err, message: 'Error al guardar usuario.' });
@@ -94,12 +100,23 @@ function addUser(req, res) {
 // GET USERS Block                       				   
 // ===============================================
 function getUsers(req, res) {
-    console.log('Ingresa al Get');
-    User.find({ _id: { $ne: deletedUser } }, '-password')
-        .exec((err, users) => {
-            if (err) return res.status(400).send({ok: false, message: 'Error al obtener usuarios, error: ', error: err});
-            if (users) return res.status(200).send({ok: true, users: users});
-    });
+    var id = req.params.id;
+    if(id) {
+        User.findOne({ '_id': id})
+            .populate('branch')
+            .exec( (err, user) => {
+                if (err) return res.status(500).send({ ok: false, message: 'Error al obtener usuario.'});
+                if (!user) return res.status(404).send({ ok: false, message: 'Error en los datos para obtener usuario.'});
+                return res.status(200).send({ ok: true, message: 'Usuario encontrado', user});
+        });
+    } else {
+        console.log('Ingresa al Get');
+        User.find({ _id: { $ne: deletedUser } }, '-password')
+            .exec((err, users) => {
+                if (err) return res.status(400).send({ok: false, message: 'Error al obtener usuarios, error: ', error: err});
+                if (users) return res.status(200).send({ok: true, users: users});
+        });
+    }
     
 }
 
@@ -124,37 +141,77 @@ function updUser(req, res) {
 function delUser(req, res) {
     var id = req.params.id;
     if(id) {
+        // console.log('id para el delete fdd:', id);
+        // Order.find({ 'client_id': id}, (err, encontrado)=> {
+        //     return res.status(200).send({ok: true, message: 'Ordenes encontradas', encontrado})
+        // })
+        
         delAndSetuser(id)
             .then( (resp) => {
+                console.log('resp recibida');
+                console.log(resp);
                 return res.status(200).send({ ok: true, message: 'Actualizado correctamente', await: resp });
             })
             .catch((err) => {
                 console.log(err);     
             })
-        // User.findByIdAndRemove(id, (err, deleted)=> {
-        //     if (err) return res.status(500).send({ ok: false, message: 'Error al BORRAR Usuario', err})
-        //     if (!deleted) return res.status(404).send({ ok: false, message: 'No se pudo borrar Usuario con este ID.'})
-        //     return res.status(200).send({ ok: true, message: 'Usuario borrado CORRECTAMENTE', deleted})
-        // })
     } else {
         return res.status(400).send({ ok: false, message: 'Debe proporcionar un ID.', err})
     }
 }
 async function delAndSetuser(id) {
+    console.log('Entra al async await');
     var deleted = await User.findByIdAndRemove(id, (err, deleted)=> {
         if (err) return { ok: false, message: 'Error al BORRAR Usuario', err};
         if (!deleted) return { ok:false, message: 'No se pudo borrar Usuario con este ID.'};
         return { ok: true, message: 'Usuario borrado CORRECTAMENTE', deleted};
     });
 
-    var updated = await Order.updateMany({ 'client_id': id}, { 'client_id': delUser }, {new: true}, (err, updated) => {
-        if (err) return { ok: false, message: 'Error al Actualizar Ordenes Usuario Borrado', err};
-        if (!deleted) return { ok: false, message: 'No se pudo actualizar Usuario Borrado.'};
-        return { ok: true, message: 'Usuarios Actualizados correctamente', updated};
-    })
+    var updated = await Order.update({ 'client_id': id}, { 'client_id': deletedUser }, { multi: true}, (err, updated)=> {
+        if(!updated) return { ok: false, message: 'No se actualizdo'};
+        return { ok: true, message: 'Holas se actualziado', updated};
+    });
     return {
         deleted,
         updated
+    }
+}
+
+function updPassword(req, res) {
+    var id = req.params.id;
+    var oldPassword = req.body.oldPassword;
+    var newPassword = req.body.newPassword;
+    if(oldPassword === newPassword) {
+        return res.status(401).send({ ok: false, message: 'La contraseñas debe ser diferente a la anterior'});
+    }
+    // console.log('ReqBody', req.body);
+    // console.log('ReqParams', req.params);
+    if(oldPassword && newPassword) {
+        // console.log('Entra');
+        User.findById(id, (err, userFinded) =>  {
+            if (err) return res.status(500).send({ ok: false, message: 'Error en el servidor al obtener usuario con este ID'});
+            if (!userFinded) return res.status(404).send({ ok: false, message: 'Usuario no encontrado.'});
+            // console.log('User from db:', userFinded);
+            bcrypt.compare(oldPassword, userFinded.password, (err, decrypted) => {
+                if (err) return res.status(500).send({ ok: false, message: 'Error al modificar contraseña.'});
+                if(decrypted) {
+                   bcrypt.hash(newPassword, salt, (err, hash) => {
+                    if (err) return res.status(500).send({ ok: false, errorsito: err, message: 'Error al modificar contraseña.', error: err });
+                    userFinded.password = hash;
+                    User.findOneAndUpdate({_id: id}, {password: hash}, {new: true}, (err, stored) => {
+                        if (err) return res.status(500).send({ok: false, message: 'Error al modificar contraseña.', error: err});
+                        if (!stored) return res.status(404).send({ok: false, message: 'No se pudo modificar la contraseña o/.'});
+                        stored.password = undefined;
+                        return res.status(200).send({ok: true, message: 'Contraseña modificada correctamente', stored});
+                    })
+                   })
+                } else {
+                    return res.status(400).send({ ok: false, message: 'Los datos ingresados no son correctos'});
+                }
+            })
+        })
+    } else {
+        return res.status(404).send({ ok: false, message: 'Datos incompletos.'});
     }
 }
 // function register(req, res){
@@ -219,5 +276,6 @@ module.exports = {
     getUsers,
     updUser,
     delUser,
-    login, 
+    login,
+    updPassword
 }
