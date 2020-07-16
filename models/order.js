@@ -27,7 +27,9 @@ var OrderSchema = new Schema({
     delivered: { type: Number },
     price: { type: Number, default: 1, required: true },
     partial_payment: { type: Number, default: 0 },
-
+    shipping:{ type: Boolean, default: false, required: true },
+    shipping_price:{ type: Number },
+    branch_id: { type: String, required: true }
 });
 
 module.exports = mongoose.model('Order', OrderSchema);

@@ -13,16 +13,21 @@ function addOrder(req, res) {
     order.created_at = moment().unix();
     // order.end_at ? order.end_at : order.end_at = moment().add(1, 'd').unix();
     // console.log(req.body);
-    order.save((err, saved)=> {
+    order.save((err, saved) => {
         if (err) return res.status(500).send({ ok: false, message: 'Error al guardar archivo', err})
         if (!saved) return res.status(400).send({ ok: false, message: 'Error en los datos ingresados'})
-        return res.status(200).send({ ok: true, message: 'Orden guardada Correctamente.', saved})
+        console.log('Saved', saved);
+        Order.populate(saved, 'client_id' , (err, saved2) => {
+            console.log('Save2', saved2);
+            return res.status(200).send({ ok: true, message: 'Orden guardada Correctamente.', saved2});
+        });
     })
     // return res.status(200).send({ ok: true, message: 'Holas desde Orders POST.', order})
 }
 function getOrder(req, res) {
     var id = req.params.id;
-
+    var branch = req.params.branch;
+    // console.log('Branch', branch);
     var dayAtStart = moment().unix() - ((moment().unix() / 3600)%24)*3600;
     // console.log('Ahora: ', now);
 
@@ -50,7 +55,7 @@ function getOrder(req, res) {
     if(id) {
         Order.findById(id)
             .sort([['status', -1]])
-            .populate('client_id', 'name surname _id phone email')
+            .populate('client_id', 'name surname _id phone email dir dir_num departament')
             .populate('items.file_id', '_id name')
             .exec((err, order)=> {
             if (err) return res.status(500).send({ ok: false, message: 'Error al obtener orden', err})
@@ -63,30 +68,41 @@ function getOrder(req, res) {
                 {   
                     $and: [
                         {'status': { $nin: ['delivered']}},
-                        {'end_at': { $gte: dayAtStart },}
+                        {'end_at': { $gte: dayAtStart },},
+                        {'branch_id' : branch }
                     ]
                 },
                 {
-                    'status': {$in: [ 'in_progress', 'processed' ]}
+                    $and: [
+                        {'status': {$in: [ 'in_progress', 'processed' ]}},
+                        {'branch_id' : branch }
+                    ]
                 }
                 
                 ]
             })
              .sort([['status', -1]])
-             .populate('client_id', 'name surname _id phone email')
+             .populate('client_id', 'name surname _id phone email dir dir_num departament')
              .populate('items.file_id', '_id name')
+             .lean()
              .exec((err, order)=> {
             if (err) return res.status(500).send({ ok: false, message: 'Error al obtener ordenes', err})
             if (!order) return res.status(404).send({ ok: false, message: 'No se obtuvieron ORDENES.'})
-            return res.status(200).send({ ok: true, message: 'Ordenes OBTENIDAS', order})
+            Order.count({}, (error, count) => {
+                return res.status(200).send({ ok: true, 
+                                              message: 'Ordenes OBTENIDAS', 
+                                              order,
+                                              total: count })
+            })
         });
     } 
 } //getorder
 
 function getOrders(req, res) {
-        Order.find()
+    var branch = req.params.branch;
+        Order.find({ 'branch_id' : branch })
         .sort([['status', -1]])
-        .populate('client_id', 'name surname _id phone email')
+        .populate('client_id', 'name surname _id phone email dir dir_num departament')
         .populate('items.file_id', '_id name')
         .exec((err, order)=> {
             if (err) return res.status(500).send({ ok: false, message: 'Error al obtener ordenes', err})
@@ -111,25 +127,26 @@ function delOrder(req, res) {
 
 function updOrder(req, res) {
     var id = req.params.id;
+    var modified = moment().unix();
     console.log('ID: ', id);
     var status = req.params.status;
     console.log('Status: ', status);
-    console.log('ReqBody', req.body);
+    // console.log('ReqBody', req.body);
     if(req.params.id && req.body) {
         var order = new Order();
         order = req.body;
         delete order._id;
-        order.modified_at = moment().unix();
+        order.modified_at = modified;
     } else {
         var order = undefined;
     }
 
-    console.log('ORDER:', order);
+    // console.log('ORDER:', order);
 
 
     if (status && status !== 'delivered' && id) {
         console.log('Entra al Status updater');
-        Order.findOneAndUpdate({ _id: id }, { '$set': {'status': status } }, {new: true }, (err, updated) => {
+        Order.findOneAndUpdate({ _id: id }, { '$set':{'status': status,  'modified_at': modified }}, {new: true }, (err, updated) => {
             if (err) return res.status(500).send({ ok: false, message: 'Error al actualizar orden STATUS', err});
             if(!updated) return res.status(404).send({ ok: false, message: 'Datos incorrectos no se actualizó la orden.'});
             return res.status(200).send({ ok: true, message: 'UPDATE STATUS Correcto.', updated: updated })

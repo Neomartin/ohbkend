@@ -19,15 +19,16 @@ var UserSchema = Schema({
     email: { type: String, required: false, index:true, unique:true, sparse:true, default: ''},
     username: { type: String, unique: [ true, 'El usuario ya existe.'], required: false},
     // dni: { type: String, unique: true, required: [ true, 'El DNI es necesario.' ]},
-    dir: String,
-    dir_num: String,
-    nick: String,
+    dir: { type: String },
+    dir_num: { type: Number },
+    departament: { type: String },
+    nick: { type: String },
     phone: [{ type: String, prefix: Number, number: Number }],
     branch: [{ type: [Schema.ObjectId], ref: 'Branch' }],
-    password: String,
+    password: { type: String },
     image: { type: String, default: '../assets/images/users/user.png' },
     role: { type: String, default: 'CLIENT_ROLE', required: true, enum: rolesValidos },
-    observation: String,
+    observation: { type: String },
     created_at: { type: Number, default: Date.now() }
 });
 

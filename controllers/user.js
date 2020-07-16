@@ -22,15 +22,18 @@ function login(req, res) {
     // console.log('After bady', body);
     
     if(body.username && body.password) {
-        User.findOne({
+        User
+        .findOne({
             $or: [
                 { username: body.username },
                 { email: body.username }
             ]
-        }, (err, user) => {
+        })
+        .populate('branch')
+        .exec((err, user) => {
             if (err) return res.status(500).send({ ok: false, message: 'Error al obtener usuario.' });
             if(!user) { return res.status(404).send({ ok: false, message: 'Error usuario no encontrado.' }); }
-            
+            // console.log('Body password', body.password);
             bcrypt.compare(body.password, user.password, (err, result)=> {
                 if (result) {
                     //Jwt
@@ -38,17 +41,18 @@ function login(req, res) {
                     // console.log('Result:', result);
                     var token = jwt.sign( { user }, SEED, { expiresIn: 1994400 })  //4 hours
                     user.token = token;
-                    console.log('Token:', user);
+                    // console.log('Token:', user);
                     req.user = user;
                     req.user.token = token;
-                    console.log('ReqUser:', req.user);
+                    // console.log('ReqUser:', req.user);
                     // console.log('ReqUser + Token:', req.user);
                     return res.status(200).send({   ok: true, 
                                                     message: 'Login correcto',
                                                     token: token,
                                                     user: req.user    });
                 } else {
-                    return res.status(404).send({ ok: false, message: 'Datos ingresados incorrectos'});
+                    console.log('Error en contraseña');
+                    return res.status(404).send({ ok: false, message: 'Datos ingresados son incorrectos'});
                 }
             });
             
@@ -127,7 +131,9 @@ function updUser(req, res) {
     console.log('Body update user: ', req.body);
     if(id) {
         console.log('Entra al IF');
-        User.findOneAndUpdate({_id: id}, user, {new: true},  (err, updated) => {
+        User.findOneAndUpdate({_id: id}, user, {new: true})
+        .populate('branch')
+        .exec((err, updated) => {
             if(err) return res.status(500).send({ ok: false, message: err});
             if(!updated) return res.status(404).send({ ok: false, message: 'Error en datos para actualizar usuario.'});
             return res.status(200).send({ ok: true, message: 'Usuario actualizado correctamente', updated: updated});
@@ -181,6 +187,9 @@ function updPassword(req, res) {
     var id = req.params.id;
     var oldPassword = req.body.oldPassword;
     var newPassword = req.body.newPassword;
+    console.log('PasswordOld: ', oldPassword);
+    console.log('PasswordNew: ', newPassword);
+
     if(oldPassword === newPassword) {
         return res.status(401).send({ ok: false, message: 'La contraseñas debe ser diferente a la anterior'});
     }
@@ -191,12 +200,14 @@ function updPassword(req, res) {
         User.findById(id, (err, userFinded) =>  {
             if (err) return res.status(500).send({ ok: false, message: 'Error en el servidor al obtener usuario con este ID'});
             if (!userFinded) return res.status(404).send({ ok: false, message: 'Usuario no encontrado.'});
-            // console.log('User from db:', userFinded);
+            console.log('User from db:', userFinded);
             bcrypt.compare(oldPassword, userFinded.password, (err, decrypted) => {
                 if (err) return res.status(500).send({ ok: false, message: 'Error al modificar contraseña.'});
+                console.log('Decrypted: ' , decrypted);
                 if(decrypted) {
                    bcrypt.hash(newPassword, salt, (err, hash) => {
                     if (err) return res.status(500).send({ ok: false, errorsito: err, message: 'Error al modificar contraseña.', error: err });
+                    console.log(hash);
                     userFinded.password = hash;
                     User.findOneAndUpdate({_id: id}, {password: hash}, {new: true}, (err, stored) => {
                         if (err) return res.status(500).send({ok: false, message: 'Error al modificar contraseña.', error: err});

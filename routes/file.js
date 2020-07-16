@@ -29,6 +29,7 @@ api.delete('/from/:id', fileController.delFrom); //add authentication
 api.post('/file', fileController.addFile); //add authentication
 api.get('/file', fileController.getFile); //add authentication
 api.delete('/file/:id', fileController.deleteFile); //add authentication
+api.get('/file/code/:code', fileController.getFileCode); //add authentication
 
 
 module.exports = api;

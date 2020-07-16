@@ -10,12 +10,14 @@ function addBranch(req, res) {
     console.log(branch);
     // return res.status(200).send({ ok: true, message: 'Response from branch POST'});
     branch.save((err, saved) => {
-        return res.status(200).send({ ok: true, message: 'Guardarajado', saved: saved });
+        if(err) return res.status(500).send({ ok: false, message: 'Error interno', err});
+        if(!saved) return res.status(404).send({ ok: false, message: 'No se pudo añadir la Sucursal, asegurese de que todos los datos ingresados son correctos.'});
+        return res.status(200).send({ ok: true, message: 'Gardarajado', saved: saved });
     });                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
 }
+
 function delBranch(req, res) {
     var id = req.params.id;
-
     Branch.findByIdAndRemove(id, (err, deleted) => {
         if(err) return res.status(500).send({ ok: false, message: 'Error interno al eliminar Sucursal'});
         if(!deleted) return res.status(404).send({ ok: false, message: 'No se pudo eliminar este registro.'});

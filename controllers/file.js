@@ -171,6 +171,15 @@ function getFile(req, res) {
     }
 }
 
+function getFileCode(req, res ) {
+    var code = req.params.code;
+    File.findOne( {'code' : code }, (err, code) => {
+        if(err) return res.status(500).send({ ok: false, message: 'Error al obtener archivo.', err});
+        // if (!code) return res.status(404).send({ ok: false, message: 'No se encontró código' });
+        return res.status(200).send({ ok: true, message: 'Respuesta code API', code });
+    });
+}
+
 function deleteFile(req, res) {
     var id = req.params.id;
     if(id) {
@@ -196,5 +205,6 @@ module.exports = {
     getCareerFrom,
     addFile,
     getFile,
+    getFileCode,
     deleteFile
 }

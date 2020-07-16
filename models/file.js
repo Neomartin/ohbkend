@@ -11,6 +11,7 @@ var yearsValidator = [
     'Quinto',
     'Sexto',
     'Séptimo',
+    'Octavo',
     'Inicial',
     'Medio',
     'Avanzado',
@@ -24,6 +25,7 @@ var statusValidator = [
 
 var FileSchema = new Schema({
     name: { type: String, required: [true, 'Nombre del archivo es obligatorio.'], unique: [true, 'Nombre duplicado.'] },
+    code: { type: Number, required: true },
     user_id: {type: Schema.Types.ObjectId, ref: 'User'},
     from_id: { type: Schema.Types.ObjectId, ref: 'From', required: true},
     career_id: { type: Schema.Types.ObjectId, ref: 'Career'},
