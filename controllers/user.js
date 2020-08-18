@@ -19,9 +19,9 @@ var roles = [ 'CLIENT_ROLE', 'USER_ROLE', 'ADMIN_ROLE', 'SUPER_ADMIN_ROLE' ];
 function login(req, res) {
     
     // try {
-        // console.log('Bady', body);
+        console.log('Bady', body);
         var body = new User();
-        body.username = req.body.user.toLowerCase();
+        body.username = req.body.user.toLowerCase() || '';
         body.password = req.body.password;
         // console.log('After bady', body);
 
