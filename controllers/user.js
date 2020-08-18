@@ -19,17 +19,17 @@ var roles = [ 'CLIENT_ROLE', 'USER_ROLE', 'ADMIN_ROLE', 'SUPER_ADMIN_ROLE' ];
 function login(req, res) {
     
     // try {
-        console.log('Bady', body);
-        var body = new User();
-        body.username = req.body.user.toLowerCase() || '';
-        body.password = req.body.password;
+        console.log('Bady', req.body);
+        // var body = new User();
+        var username = req.body.user.toLowerCase() || '';
+        var password = req.body.password;
         // console.log('After bady', body);
 
-        if (body.username && body.password) {
+        if (username && password) {
             User.findOne({
                 $or: [
-                    { username: body.username },
-                    { email: body.username }
+                    { username: username },
+                    { email: username }
                 ]
             })
             .populate('branch')
@@ -40,7 +40,7 @@ function login(req, res) {
                 /////////////////////////////////////
                 //   Comprobación del password    //
                 ////////////////////////////////////
-                bcrypt.compare(body.password, user.password, (err, result)=> {
+                bcrypt.compare(password, user.password, (err, result)=> {
                     if (result) {
                         
                         user.password = undefined; //pass
