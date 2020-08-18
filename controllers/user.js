@@ -7,75 +7,93 @@ var SEED = require('../config/config').SEED;
 
 var bcrypt = require('bcrypt');
 var jwt = require('jsonwebtoken');
+
+var createToken = require('../helpers/jwt');
 // var deletedUser = 'holis';
 var deletedUser = '5ec47a7231f3ce0abc4c2d7a';
 var salt = 10;
+var roles = [ 'CLIENT_ROLE', 'USER_ROLE', 'ADMIN_ROLE', 'SUPER_ADMIN_ROLE' ];
 // ===============================================
 // LOGIN Block                       				   
 // ===============================================
 function login(req, res) {
     
-    // console.log('Bady', body);
-    var body = new User();
-    body.username = req.body.user.toLowerCase();
-    body.password = req.body.password;
-    // console.log('After bady', body);
-    
-    if(body.username && body.password) {
-        User
-        .findOne({
-            $or: [
-                { username: body.username },
-                { email: body.username }
-            ]
-        })
-        .populate('branch')
-        .exec((err, user) => {
-            if (err) return res.status(500).send({ ok: false, message: 'Error al obtener usuario.' });
-            if(!user) { return res.status(404).send({ ok: false, message: 'Error usuario no encontrado.' }); }
-            // console.log('Body password', body.password);
-            bcrypt.compare(body.password, user.password, (err, result)=> {
-                if (result) {
-                    //Jwt
-                    user.password = undefined; //pass
-                    // console.log('Result:', result);
-                    var token = jwt.sign( { user }, SEED, { expiresIn: 1994400 })  //4 hours
-                    user.token = token;
-                    // console.log('Token:', user);
-                    req.user = user;
-                    req.user.token = token;
-                    // console.log('ReqUser:', req.user);
-                    // console.log('ReqUser + Token:', req.user);
-                    return res.status(200).send({   ok: true, 
-                                                    message: 'Login correcto',
-                                                    token: token,
-                                                    user: req.user    });
-                } else {
-                    console.log('Error en contraseña');
-                    return res.status(404).send({ ok: false, message: 'Datos ingresados son incorrectos'});
-                }
+    // try {
+        // console.log('Bady', body);
+        var body = new User();
+        body.username = req.body.user.toLowerCase();
+        body.password = req.body.password;
+        // console.log('After bady', body);
+
+        if (body.username && body.password) {
+            User.findOne({
+                $or: [
+                    { username: body.username },
+                    { email: body.username }
+                ]
+            })
+            .populate('branch')
+            .exec((err, user) => {
+                if (err) return res.status(500).send({ ok: false, message: 'Error al obtener usuario.' });
+                if(!user) { return res.status(404).send({ ok: false, message: 'Error usuario no encontrado.' }); }
+
+                /////////////////////////////////////
+                //   Comprobación del password    //
+                ////////////////////////////////////
+                bcrypt.compare(body.password, user.password, (err, result)=> {
+                    if (result) {
+                        
+                        user.password = undefined; //pass
+
+                        req.user = user;
+                        ///////////////////////////////
+                        // Generación del JWT        //
+                        ///////////////////////////////
+                        createToken.createJWT(user).then( token => {
+                            // console.log('tokencito', token);
+                            return res.status(200).send({   ok: true, 
+                                message: 'Login correcto',
+                                token: token,
+                                user: req.user    
+                            });
+                        }).catch(err => {
+                            return res.status(500).send({ ok: false, message: 'Internal error JWT'});
+                        });
+                        // console.log('DSADs', await createToken.createJWT(user));
+                        
+                    } else {
+                        console.log('Error en contraseña');
+                        return res.status(404).send({ ok: false, message: 'Datos ingresados son incorrectos'});
+                    }
+                });
             });
             
-        })
     } else {
         return res.status(400).send({ ok: false, message: 'Todos los campos son obligatorios'});
     }
+    // } catch (error) {
+    //     res.status(500).json({
+    //                 ok: false,
+    //                 msg: 'Hable con el administrador'
+    //             })
+    // }
+   
 }
 
 function addUser(req, res) {
-    console.log('Body: ', req.body);
+    // console.log('Body: ', req.body);
     var user = new User(req.body);
     // Armando nombre usuario default por si no es enviado
     var dateString = Date.now().toString();
-    console.log('Name Editadito Finalmente: ', user.name.split(' ')[0].toLowerCase() + dateString.slice(9));
+    // console.log('Name Editadito Finalmente: ', user.name.split(' ')[0].toLowerCase() + dateString.slice(9));
     user.username ? user.username.toLowerCase() : user.username = user.name.split(' ')[0].toLowerCase() + dateString.slice(9);
     user.email ? user.email = user.email.toLowerCase() : user.email = undefined; 
-    console.log('User: ', user);
+    // console.log('User: ', user);
     // console.log('Usuario:', user);
     if(user.password) {
-        console.log('BeforePass: ', user);
+        // console.log('BeforePass: ', user);
         bcrypt.hash(user.password, salt, (err, hash) => {
-            console.log('Hash: ', hash);
+            // console.log('Hash: ', hash);
             // console.log('Error:', err );
             if (err) return res.status(500).send({ ok: false, errorsito: err, message: 'Error al guardar usuario.' });
             // if (err) return res.status(500).send({ ok: false, errorsito: err, message: 'Error al guardar usuario.' });
@@ -88,7 +106,7 @@ function addUser(req, res) {
             });
         });
     } else {
-        console.log('User2: ', user);
+        // console.log('User2: ', user);
         user.save((err, stored) => {
             console.log('Stored Normal: ', user);
             if (err) return res.status(500).send({ok: false, message: 'Error al guardar usuario, error: ', error: err});
@@ -104,9 +122,21 @@ function addUser(req, res) {
 // GET USERS Block                       				   
 // ===============================================
 function getUsers(req, res) {
+    var access_level = req.user.role.access_level;
+    // console.log('User', req.user);
     var id = req.params.id;
+    console.log('Params', id);
+    access_level === 4 || access_level === 0 ? access_level : access_level = access_level - 1;
+    // if (access_level) {
+    //     console.log('Entra al', );
+    // }
     if(id) {
-        User.findOne({ '_id': id})
+        User.findOne( { 
+            $and: [
+                // { 'role.access_level' : { $lte : access_level } },
+                { '_id': id }
+              ]
+            })
             .populate('branch')
             .exec( (err, user) => {
                 if (err) return res.status(500).send({ ok: false, message: 'Error al obtener usuario.'});
@@ -114,32 +144,55 @@ function getUsers(req, res) {
                 return res.status(200).send({ ok: true, message: 'Usuario encontrado', user});
         });
     } else {
-        console.log('Ingresa al Get');
-        User.find({ _id: { $ne: deletedUser } }, '-password')
+        User.find({
+            $or: [{
+                $and: [
+                    { 'role.access_level' : { $lte : access_level }},
+                    { _id : { $ne: deletedUser }},
+                ]
+                },
+                { _id : req.user._id }
+              ]
+            })
             .exec((err, users) => {
                 if (err) return res.status(400).send({ok: false, message: 'Error al obtener usuarios, error: ', error: err});
                 if (users) return res.status(200).send({ok: true, users: users});
         });
     }
-    
 }
 
 function updUser(req, res) {
+    // Nivel de acceso del usuario actual
+    var access_level = req.user.role.access_level;
     var id = req.params.id;
     var user = new User();
-    user = req.body;
-    console.log('Body update user: ', req.body);
-    if(id) {
-        console.log('Entra al IF');
-        User.findOneAndUpdate({_id: id}, user, {new: true})
-        .populate('branch')
-        .exec((err, updated) => {
-            if(err) return res.status(500).send({ ok: false, message: err});
-            if(!updated) return res.status(404).send({ ok: false, message: 'Error en datos para actualizar usuario.'});
-            return res.status(200).send({ ok: true, message: 'Usuario actualizado correctamente', updated: updated});
-        });
-    } else {
+    console.log(user);
 
+    user = req.body;
+    // SEGURITY: User access modification check
+    // **PD: To improve if requirements change, maximun access can be 1 level less than user access_level
+    if(user.role.access_level <= access_level) {
+        if(user.email) {
+            console.log('Entra el user email')
+            user.email = user.email.toLowerCase();
+        } else {
+            console.log('Entra al emal Undefined')
+            user.email = undefined; 
+        }
+        // return res.status(404).send({ ok: true, message: 'Error hardcodeado'});
+        // console.log('Body update user: ', req.body);
+        if(id) {
+            console.log('Entra al IF');
+            User.findOneAndUpdate({_id: id}, user, {new: true})
+            .populate('branch')
+            .exec((err, updated) => {
+                if(err) return res.status(500).send({ ok: false, message: err});
+                if(!updated) return res.status(404).send({ ok: false, message: 'Error en datos para actualizar usuario.'});
+                return res.status(200).send({ ok: true, message: 'Usuario actualizado correctamente', updated: updated});
+            });
+        } else {
+    
+        }
     }
 }
 
@@ -225,62 +278,31 @@ function updPassword(req, res) {
         return res.status(404).send({ ok: false, message: 'Datos incompletos.'});
     }
 }
-// function register(req, res){
-//     var user = new User();
-//     var params = req.body;
-//     user.name = params.name;
-//     user.surname = params.surname;
-//     params.email ? user.email = params.email.toLowerCase() : user.email = null;
-//     user.dni = params.dni;
-//     user.dir = params.dir;
-//     user.dir_num = params.dir_num;
-//     params.nick ? user.nick = params.nick.toLowerCase() : user.nick = null;
-//     user.password = bcrypt.hashSync(params.password, 10);
-//     params.image ? user.image=params.image : user.image=null; //ternario
-//     if (params.role) user.role = params.role;
-//     user.observation = params.observation;
-//     user.smartphone = params.smartphone;
-//     console.log(user);
-    
-//     if(user.name && user.surname && user.dni && user.password && user.email){
-//         user.save( (err, userStored) => {
-//             if(err) return res.status(400).send({ok: false, message: 'Error Server al guardar Usuario.', errorsito: err});
-//             if(!userStored) return res.status(404).send({ok: false, message: 'No se registro el usuario.', errorsito: err})
-            
-//             if (userStored) return res.status(200).send({ok: true, message: 'Usuario guardado correctamente.', User: userStored });
-//         })
-//     } else {
-//         return res.status(401).send({ok: false, message: 'Se necesitan que se completen los campos obligatorios.'});
-//     }
-//     // console.log(user);  
-// }
 
-// function login(req, res) {
-//     var login = new User(req.body);
-//     if(login.email && login.password || login.dni && login.password) {
-//         User.findOne({
-//                 $or: [
-//                     { email: login.email },
-//                     { dni: login.dni }
-//                 ],
-//         }).select({ nick: 0, observation: 0 }).exec((err, userLogin)=> {
-//             if(err) return res.status(500).send({ ok: false, message: 'Error al realizar la petición al servidor.'});
-//             if(!userLogin) return res.status(404).send({ ok: false, message: 'Usuario no encontrado.'});
-            
-//             if(bcrypt.compareSync(login.password, userLogin.password)) {
-//                 console.log(SEED);
-//                 userLogin.password = undefined;
-//                 var token = jwt.sign( { usuario: userLogin }, SEED, { expiresIn: 14400 });
-//                 return res.status(200).send({ ok: true, message: 'Usuario encontrado.', user: userLogin, token: token });
-//             } else {
-//                 console.log('NO Ingresa Login');
-//                 return res.status(404).send({ ok: false, message: 'Usuario o Contraseña incorrecta.'})
-//             }
-//         })
-//     }
+ const renewToken = async(req, res) => {
+     var user = req.user;
 
-// }
+     const token = await createToken.createJWT(user);
+    //  console.log('Token', token);
+     return res.status(200).send({ ok: true, message: 'Token renovado', token});
 
+ }
+
+function resetPassword(req, res) {
+    var id = req.params.id;
+    if(req.user.role.access_level >= 3 || req.user._id === id) {
+        bcrypt.hash('1234', salt, (err, hash)=> {
+            if (err) return res.status(500).send({ ok: false, errorsito: err, message: 'Error al resetear contraseña.' });
+            User.findOneAndUpdate({ _id: id}, { password: hash}, { new: true }, (err, updated) => {
+                if(err) return res.status(500).send({ ok: false, message: err});
+                if(!updated) return res.status(404).send({ ok: false, message: 'Datos incorrectos.'});
+                return res.status(200).send({ ok: true, message: 'Contraseña reseteada correctamente', password: '1234', updated});
+            })
+        })
+    } else {
+        return res.status(403).send({ ok: false, message: 'No tiene permisos para realizar esta acción'});
+    }
+}
 
 module.exports = {
     addUser,
@@ -288,5 +310,7 @@ module.exports = {
     updUser,
     delUser,
     login,
-    updPassword
+    updPassword,
+    renewToken,
+    resetPassword
 }

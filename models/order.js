@@ -6,7 +6,7 @@ var validStatus = [
     'processed',
     'in_progress',
     'completed',
-    'canceled',
+    'cancelled',
     'delivered'
 ];
 
@@ -29,7 +29,8 @@ var OrderSchema = new Schema({
     partial_payment: { type: Number, default: 0 },
     shipping:{ type: Boolean, default: false, required: true },
     shipping_price:{ type: Number },
-    branch_id: { type: String, required: true }
+    branch_id: { type: String, required: true },
+    obs: { type: String }
 });
 
 module.exports = mongoose.model('Order', OrderSchema);

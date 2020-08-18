@@ -6,8 +6,6 @@ var moment = require('moment');
 
 var Order = require('../models/order');
 
-
-
 function addOrder(req, res) {
     var order = new Order(req.body);
     order.created_at = moment().unix();
@@ -25,6 +23,9 @@ function addOrder(req, res) {
     // return res.status(200).send({ ok: true, message: 'Holas desde Orders POST.', order})
 }
 function getOrder(req, res) {
+    // console.log(req.user);
+    // console.log('Index del user Role: ', roles.indexOf(req.user.role));
+    
     var id = req.params.id;
     var branch = req.params.branch;
     // console.log('Branch', branch);
@@ -88,7 +89,7 @@ function getOrder(req, res) {
              .exec((err, order)=> {
             if (err) return res.status(500).send({ ok: false, message: 'Error al obtener ordenes', err})
             if (!order) return res.status(404).send({ ok: false, message: 'No se obtuvieron ORDENES.'})
-            Order.count({}, (error, count) => {
+            Order.countDocuments({}, (error, count) => {
                 return res.status(200).send({ ok: true, 
                                               message: 'Ordenes OBTENIDAS', 
                                               order,
@@ -101,7 +102,8 @@ function getOrder(req, res) {
 function getOrders(req, res) {
     var branch = req.params.branch;
         Order.find({ 'branch_id' : branch })
-        .sort([['status', -1]])
+        // Order by last modification date
+        .sort([['modified_at', -1]])
         .populate('client_id', 'name surname _id phone email dir dir_num departament')
         .populate('items.file_id', '_id name')
         .exec((err, order)=> {
@@ -127,11 +129,10 @@ function delOrder(req, res) {
 
 function updOrder(req, res) {
     var id = req.params.id;
+    var obs = req.body.obs;
+    // console.log('BODY', req.body);
     var modified = moment().unix();
-    console.log('ID: ', id);
     var status = req.params.status;
-    console.log('Status: ', status);
-    // console.log('ReqBody', req.body);
     if(req.params.id && req.body) {
         var order = new Order();
         order = req.body;
@@ -141,10 +142,20 @@ function updOrder(req, res) {
         var order = undefined;
     }
 
-    // console.log('ORDER:', order);
-
-
-    if (status && status !== 'delivered' && id) {
+    if(status === 'cancelled') {
+        console.log('Entra al cancelled if');
+        if(obs) {
+            console.log('Entra al cancelled if OBSETRVACTIOn');
+            Order.findOneAndUpdate({ _id: id }, { '$set':{'status': status,  'modified_at': modified, 'obs' : obs }}, 
+                                   { new: true }, (err, updated) => {
+                    if(err) return res.status(500).send({ ok: false, message: 'Error al cancelar orden'});
+                    if(!updated) return res.status(404).send({ ok: false, message: 'No puede cancelar esta orden'});
+                    return res.status(200).send({ ok: true, message: 'Orden cancelada correctamente!', updated});
+            });
+        } else {    
+            return res.status(404).send({ ok: false, message: 'Se debe especificar una observación'});
+        }
+    } else if (status && status !== 'delivered' && id) {
         console.log('Entra al Status updater');
         Order.findOneAndUpdate({ _id: id }, { '$set':{'status': status,  'modified_at': modified }}, {new: true }, (err, updated) => {
             if (err) return res.status(500).send({ ok: false, message: 'Error al actualizar orden STATUS', err});
